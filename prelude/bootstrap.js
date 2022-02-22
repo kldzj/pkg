@@ -2046,30 +2046,51 @@ function payloadFileSync(pointer) {
         }
       }
 
-      const { cwd = '', file } = options;
-      function isBatAndInSnapshot() {
+      function findBatArgIndex() {
+        return options.args.findIndex(
+          (arg) => arg.endsWith('.bat') || arg.endsWith('.cmd')
+        );
+      }
+
+      const batArgIdx = findBatArgIndex();
+      function isShellSetAndInsideSnapshot() {
+        return Boolean(
+          options.shell &&
+            insideSnapshot(path.join(options.cwd || '', options.file))
+        );
+      }
+
+      function isBatAndInsideSnapshot() {
         if (process.platform !== 'win32') {
           return false;
         }
 
-        if (options.shell && insideSnapshot(path.join(cwd, file))) {
+        if (isShellSetAndInsideSnapshot()) {
           return true;
         }
 
         return (
-          file === 'cmd.exe' &&
-          options.args[0] === '/c' &&
-          insideSnapshot(path.join(cwd, options.args[1]))
+          batArgIdx !== -1 &&
+          options.file === 'cmd.exe' &&
+          options.args.includes('/c') &&
+          insideSnapshot(path.join(options.cwd || '', options.args[batArgIdx]))
         );
       }
 
-      const oldFile = path.join(cwd, file);
-      if (insideSnapshot(oldFile) || isBatAndInSnapshot()) {
+      let oldFile = path.join(options.cwd || '', options.file);
+      if (insideSnapshot(oldFile) || isBatAndInsideSnapshot()) {
         const tmp = fs.mkdtempSync(path.join(tmpdir(), 'pkg-'));
-        const newFile = path.resolve(tmp, path.basename(file));
-        options.file = newFile;
+        let newFile = path.resolve(tmp, path.basename(options.file));
 
-        fs.copyFileSync(file, newFile);
+        if (process.platform === 'win32' && !isShellSetAndInsideSnapshot()) {
+          oldFile = path.join(options.cwd || '', options.args[batArgIdx]);
+          newFile = path.resolve(tmp, path.basename(oldFile));
+          options.args[batArgIdx] = newFile;
+        } else {
+          options.file = newFile;
+        }
+
+        fs.copyFileSync(oldFile, newFile);
         if (process.platform !== 'win32') {
           const stat = fs.statSync(oldFile);
           fs.chmodSync(newFile, stat.mode);

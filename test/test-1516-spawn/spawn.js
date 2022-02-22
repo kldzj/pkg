@@ -47,8 +47,6 @@ async function test() {
 
   const dir = join(__dirname, 'files');
   const files = readdirSync(dir);
-  console.log(files.join(', '));
-
   for (const file of ['test.sh', 'test.bat']) {
     if (!files.includes(file)) {
       throw new Error('Missing file in snapshot');
