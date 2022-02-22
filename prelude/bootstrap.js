@@ -2046,24 +2046,24 @@ function payloadFileSync(pointer) {
         }
       }
 
+      const { cwd = '', file } = options;
       function isBatAndInSnapshot() {
-        if (
-          process.platform === 'win32' &&
-          options.shell &&
-          insideSnapshot(options.file)
-        ) {
+        if (process.platform !== 'win32') {
+          return false;
+        }
+
+        if (options.shell && insideSnapshot(path.join(cwd, file))) {
           return true;
         }
 
         return (
-          options.file === 'cmd.exe' &&
+          file === 'cmd.exe' &&
           options.args[0] === '/c' &&
-          insideSnapshot(options.args[1])
+          insideSnapshot(path.join(cwd, options.args[1]))
         );
       }
 
-      const { cwd, file } = options;
-      const oldFile = path.join(cwd || '', file);
+      const oldFile = path.join(cwd, file);
       if (insideSnapshot(oldFile) || isBatAndInSnapshot()) {
         const tmp = fs.mkdtempSync(path.join(tmpdir(), 'pkg-'));
         const newFile = path.resolve(tmp, path.basename(file));
