@@ -2046,25 +2046,28 @@ function payloadFileSync(pointer) {
         }
       }
 
-      function shouldRunUsingCmd(file) {
-        return (
+      function isBatAndInSnapshot() {
+        if (
           process.platform === 'win32' &&
-          (file.endsWith('.cmd') || file.endsWith('.bat'))
+          options.shell &&
+          insideSnapshot(options.file)
+        ) {
+          return true;
+        }
+
+        return (
+          options.file === 'cmd.exe' &&
+          options.args[0] === '/c' &&
+          insideSnapshot(options.args[1])
         );
       }
 
       const { cwd, file } = options;
       const oldFile = path.join(cwd || '', file);
-      if (insideSnapshot(oldFile)) {
+      if (insideSnapshot(oldFile) || isBatAndInSnapshot()) {
         const tmp = fs.mkdtempSync(path.join(tmpdir(), 'pkg-'));
         const newFile = path.resolve(tmp, path.basename(file));
-
-        if (shouldRunUsingCmd(file)) {
-          options.file = 'cmd.exe';
-          options.args = ['/c', newFile, ...options.args];
-        } else {
-          options.file = newFile;
-        }
+        options.file = newFile;
 
         fs.copyFileSync(file, newFile);
         if (process.platform !== 'win32') {
